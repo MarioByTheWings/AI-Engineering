@@ -8,7 +8,6 @@ venv/
 .ruff_cache/
 *.log
 faiss_index/
-normativa/
 data/
 test_ejercicio4.py
 AI Engineering con Python*
