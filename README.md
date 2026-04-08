@@ -26,7 +26,7 @@ OLLAMA_MODEL=mistral:7b
 
 ### Opción B: Gemini (con key)
 
-Crea un archivo `.env` en esta carpeta con:
+Crea un archivo `.env` con:
 
 ```
 GOOGLE_API_KEY=TU_API_KEY
@@ -65,10 +65,6 @@ python ejercicio3_detective_chunks.py --pdf "ruta/al/archivo.pdf" --chunk-size 1
 ```
 
 ## Ejercicio 4 — Agente con doble tool
-
-1) Mete PDFs en la carpeta `normativa/` (se crea sola la primera vez).
-
-2) Ejecuta:
 
 ```bash
 python ejercicio4_agente_doble_tool.py
