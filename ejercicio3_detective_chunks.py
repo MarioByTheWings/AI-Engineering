@@ -1,5 +1,6 @@
 import argparse
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
@@ -24,13 +25,42 @@ def _strip_llm_fuente(answer: str) -> str:
     return "\n".join(out).rstrip()
 
 
-def run_rag(pdf_path: str, chunk_size: int, chunk_overlap: int) -> None:
+def _resolve_pdf_paths(pdf_arg: str | None) -> list[str]:
+    # Si el usuario pasa --pdf, puede ser un archivo o una carpeta.
+    if pdf_arg:
+        path = Path(pdf_arg)
+        if path.is_file():
+            if path.suffix.lower() != ".pdf":
+                raise FileNotFoundError(f"El archivo indicado no es PDF: {pdf_arg}")
+            return [str(path)]
+        if path.is_dir():
+            pdfs = sorted(path.rglob("*.pdf"))
+            if not pdfs:
+                raise FileNotFoundError(
+                    f"No se encontraron archivos .pdf en la carpeta: {pdf_arg}"
+                )
+            return [str(p) for p in pdfs]
+        raise FileNotFoundError(f"No existe la ruta indicada en --pdf: {pdf_arg}")
+
+    # Sin --pdf: usar el PDF específico del ejercicio 3.
+    default_pdf = Path("Rivas_Guia_basica_uso_inteligencia_artificial_generativa_2025.pdf")
+    if not default_pdf.is_file():
+        raise FileNotFoundError(
+            "No se encontró el PDF por defecto del ejercicio 3: "
+            "'Rivas_Guia_basica_uso_inteligencia_artificial_generativa_2025.pdf'. "
+            "Pásalo con --pdf o coloca ese archivo en la raíz del proyecto."
+        )
+    return [str(default_pdf)]
+
+
+def run_rag(pdf_paths: list[str], chunk_size: int, chunk_overlap: int) -> None:
     load_dotenv()
     ollama_base_url = os.getenv("OLLAMA_BASE_URL")
     ollama_model = os.getenv("OLLAMA_MODEL", "mistral:7b")
 
-    if not os.path.exists(pdf_path):
-        raise FileNotFoundError(f"No existe el PDF: {pdf_path}")
+    for pdf_path in pdf_paths:
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError(f"No existe el PDF: {pdf_path}")
 
     if ollama_base_url:
         llm = ChatOllama(base_url=ollama_base_url, model=ollama_model, temperature=0)
@@ -47,8 +77,10 @@ def run_rag(pdf_path: str, chunk_size: int, chunk_overlap: int) -> None:
         )
     embeddings = FastEmbedEmbeddings()
 
-    loader = PyPDFLoader(pdf_path)
-    docs = loader.load()
+    docs = []
+    for pdf_path in pdf_paths:
+        loader = PyPDFLoader(pdf_path)
+        docs.extend(loader.load())
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
@@ -75,7 +107,9 @@ def run_rag(pdf_path: str, chunk_size: int, chunk_overlap: int) -> None:
             paginas.append(p + 1)  # 0-indexed -> 1-indexed
 
     paginas_unicas = ", ".join(str(p) for p in sorted(set(paginas))) or "N/A"
-    print(f"PDF: {pdf_path}")
+    print(f"PDF(s) cargados: {len(pdf_paths)}")
+    for pdf_path in pdf_paths:
+        print(f"- {pdf_path}")
     print(f"Chunk size: {chunk_size} | Overlap: {chunk_overlap}")
     print("-" * 60)
     print("Pregunta:", pregunta)
@@ -90,14 +124,19 @@ def main() -> None:
     )
     parser.add_argument(
         "--pdf",
-        default="AI Engineering con Python .pdf",
-        help="Ruta al PDF (por defecto el de esta carpeta).",
+        default=None,
+        help=(
+            "Ruta a un PDF o carpeta con PDFs. "
+            "Si no se indica, se usa "
+            "'Rivas_Guia_basica_uso_inteligencia_artificial_generativa_2025.pdf'."
+        ),
     )
     parser.add_argument("--chunk-size", type=int, required=True)
     parser.add_argument("--chunk-overlap", type=int, required=True)
     args = parser.parse_args()
 
-    run_rag(args.pdf, args.chunk_size, args.chunk_overlap)
+    pdf_paths = _resolve_pdf_paths(args.pdf)
+    run_rag(pdf_paths, args.chunk_size, args.chunk_overlap)
 
 
 if __name__ == "__main__":

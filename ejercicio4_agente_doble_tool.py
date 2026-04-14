@@ -8,12 +8,14 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
-from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_classic.chains.retrieval import create_retrieval_chain
+
+NORMATIVA_PDF_PATH = "normativa/guia_normativa_ejemplo.pdf"
 
 
 def consultar_calendario_examenes_fn(modulo: str) -> str:
@@ -208,16 +210,16 @@ def configurar_asistente() -> AsistenteLocal:
     ollama_base_url = os.getenv("OLLAMA_BASE_URL")
     ollama_model = os.getenv("OLLAMA_MODEL", "mistral:7b")
 
-    if not os.path.exists("normativa"):
-        os.makedirs("normativa")
+    if not os.path.isfile(NORMATIVA_PDF_PATH):
         raise RuntimeError(
-            "He creado la carpeta 'normativa/'. Mete ahí uno o más PDFs y vuelve a ejecutar."
+            "No se encontró el PDF de normativa esperado: "
+            f"'{NORMATIVA_PDF_PATH}'."
         )
 
-    loader = PyPDFDirectoryLoader("normativa/")
+    loader = PyPDFLoader(NORMATIVA_PDF_PATH)
     docs = loader.load()
     if not docs:
-        raise RuntimeError("La carpeta 'normativa/' está vacía (no hay PDFs cargables).")
+        raise RuntimeError(f"No se pudo cargar el PDF: '{NORMATIVA_PDF_PATH}'.")
 
     horas_modulos = _extraer_tabla_horas_por_modulo(docs)
 
